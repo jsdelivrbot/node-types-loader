@@ -1,4 +1,5 @@
 
+*.lock
 /target/
 **/*.rs.bk
 package.json

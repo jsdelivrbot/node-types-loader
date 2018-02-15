@@ -2,12 +2,10 @@
 
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
-extern crate futures;
 extern crate rayon;
 
-use futures::{ Future, future };
 use std::collections::HashMap;
-use std::process::{ Command };
+use std::process::{ self, Command };
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
@@ -23,28 +21,30 @@ struct PackageFile {
 }
 
 #[inline(always)]
-fn load_package(name: String) -> String {
+fn load_package(name: String) {
     let (command, subcommand) = ("npm", "install");
-    let mut child = Command::new(command)
+    let child = Command::new(command)
         .arg(subcommand)
         .arg(name.as_str())
         .arg("--save-dev")
-        .spawn()
-        .expect("Cannot spawn npm process");
+        .spawn();
 
-    let ecode = child.wait();
-    match ecode {
-        Ok(code) => name.to_owned(),
-        Err(code) => name.to_owned()
-    }
+    match child {
+        Ok(mut cp) => cp.wait(),
+        Err(err) => {
+            println!("Cannot spawn npm process for {}", name);
+            println!("{:?}", err);
+            Err(err)
+        }
+    };
 }
 
 #[inline(always)]
 fn read_deps() -> Option<PackageFile> {
     let fl: Option<File> = match File::open("./package.json") {
         Ok(file) => Some(file),
-        Err(err) => {
-            println!("An error occured {:?}", err);
+        Err(_) => {
+            println!("Cannot find package.json in the current directory");
             None
         }
     };
@@ -55,12 +55,14 @@ fn read_deps() -> Option<PackageFile> {
 
     let mut package_json = String::new();
     let mut buf_reader = BufReader::new(fl.unwrap());
-    buf_reader.read_to_string(&mut package_json).expect("Cannot read from file");
+    buf_reader
+        .read_to_string(&mut package_json)
+        .expect("Cannot read from a given file");
 
     match serde_json::from_str(package_json.as_str()) {
         Ok(json) => Some(json),
         Err(err) => {
-            println!("A parse error occured {:?}", err);
+            println!("Cannot parse package.json {:?}", err);
             None
         }
     }
@@ -89,27 +91,29 @@ fn collect_deps(deps: PackageFile) -> Vec<String> {
     collected
 }
 
-#[inline(always)]
-fn run(name: String) -> impl Future<Item=String, Error=String> {
-    let future = future::ok::<String, String>(name);
-    future.map(load_package)
-}
-
 fn main() {
-    let json: PackageFile = match read_deps() {
-        Some(parsed) => parsed,
-        None => panic!("Cannot load types")
-    };
 
-    let packages: Vec<String> = collect_deps(json)
+    let json: Option<PackageFile> = read_deps();
+
+    if json.is_none() {
+        process::exit(1);
+    }
+
+    let packages: Vec<String> = collect_deps(json.unwrap())
         .into_iter()
         .filter(|i| { !i.starts_with("@types") })
         .map(|i| { format!("@types/{}", i) })
         .collect();
 
-    packages
-        .par_iter()
-        .for_each(move |p| {
-            run(p.to_owned()).wait();
-        });
+    match packages.len() {
+        0 => {
+            println!("No dependencies specified");
+            process::exit(0);
+        },
+        _ => packages
+                .par_iter()
+                .for_each(move |p| {
+                    load_package(p.to_owned());
+                })
+    };
 }
