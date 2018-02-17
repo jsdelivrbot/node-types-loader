@@ -1,7 +1,7 @@
 # Node @types loader #
 
 Small tool for installing @types dependencies.
-This tool reads package.json and try to install @types packages using npm.
+This tool reads package.json and tries to install @types packages using npm.
 
 ### How to install: ###
 
