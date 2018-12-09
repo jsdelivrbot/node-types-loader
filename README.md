@@ -8,11 +8,11 @@ This tool reads package.json and tries to install @types packages using npm.
 To get a binary use
 
 ```sh
-curl -O- https://cdn.rawgit.com/anlaakso/node-types-loader/4c01da91/.bin/add-types > add_types
+curl -O- https://cdn.jsdelivr.net/gh/anlaakso/node-types-loader@4c01da91/.bin/add-types > add_types
 ```
 
 or
 
 ```sh
-wget -qO- https://cdn.rawgit.com/anlaakso/node-types-loader/4c01da91/.bin/add-types > add_types
+wget -qO- https://cdn.jsdelivr.net/gh/anlaakso/node-types-loader@4c01da91/.bin/add-types > add_types
 ```
